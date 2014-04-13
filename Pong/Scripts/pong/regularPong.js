@@ -106,10 +106,10 @@ Paddle = function (paddleName, isAi) {
 
     this.toString = function () {
         return
-            "Paddle: " + this.name +
-            ", speed = " + this.speed * this.direction +
-            ", positionY = " + this.positionY +
-            ", size = " + this.halfLength;
+        "Paddle: " + this.name +
+        ", speed = " + this.speed * this.direction +
+        ", positionY = " + this.positionY +
+        ", size = " + this.halfLength;
     }
 
     this.getSpeed = function () {
