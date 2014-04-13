@@ -44,6 +44,7 @@ Ball = function () {
     this.position = [0, 0];
     this.speed = 2;
     this.size = 10;
+    this.reachedEnd = 0;
 
     this.setStart = function (posX, posY) {
         this.position = [posX, posY];
@@ -85,6 +86,17 @@ Ball = function () {
                     this.direction[0] *= -1;
                 }
             }
+        }
+
+        // Reaching end walls
+        if (this.position[0] < this.size) { // At left edge
+            this.direction[0] = 0;
+            this.direction[1] = 0;
+            this.reachedEnd = -1;
+        } else if (this.position[0] > table.canvasWidth - this.size) { // At right edge
+            this.direction[0] = 0;
+            this.direction[1] = 0;
+            this.reachedEnd = 1;
         }
     }
 }
@@ -168,10 +180,10 @@ Game = function (gameName) {
     var walls = [null, null];
     var ball = null;
     var paddles = [null, null];
-    var fps = 100;
+    var fps = 200;
     var isRunning = false;
 
-    this.initGame = function () {
+    var initGame = function () {
         table = new Table();
 
         player = new Paddle("Player");
@@ -191,8 +203,12 @@ Game = function (gameName) {
         ball = new Ball();
         ball.setStart(table.canvasWidth / 2, table.canvasHeight / 2);
 
-        document.addEventListener("keydown", this.keyDownHandler, false);
-        document.addEventListener("keyup", this.keyUpHandler, false);
+        document.addEventListener("keydown", keyDownHandler, false);
+        document.addEventListener("keyup", keyUpHandler, false);
+    }
+
+    this.initGamePublic = function () {
+        initGame();
     }
 
     var update = function () {
@@ -209,6 +225,18 @@ Game = function (gameName) {
         ai.draw(table);
     }
 
+    var checkVictoryConditions = function () {
+        if (ball.reachedEnd != 0) {
+            if (ball.reachedEnd > 0) {
+                console.log("Left player wins!");
+            } else {
+                console.log("Right player wins!");
+            }
+            stopGame();
+            initGame();
+        }
+    }
+
     var run = function () {
         var start = Date.now();
         update();
@@ -216,6 +244,8 @@ Game = function (gameName) {
         var time = Date.now() - start;
         fpsWriter.possibleTimeSum += time / 1000;
         fpsWriter.updateFps();
+
+        checkVictoryConditions();
     }
 
     var startGame = function () {
@@ -230,7 +260,7 @@ Game = function (gameName) {
         isRunning = false;
     }
 
-    this.keyDownHandler = function (event) {
+    var keyDownHandler = function (event) {
         switch (event.keyCode) {
             // key code for up arrow
             case 38:
@@ -245,7 +275,7 @@ Game = function (gameName) {
         }
     }
 
-    this.keyUpHandler = function (event) {
+    var keyUpHandler = function (event) {
         switch (event.keyCode) {
             // key code for Enter key
             case 13:
@@ -266,4 +296,4 @@ Game = function (gameName) {
 }
 
 var pongGame = new Game("Regular Pong");
-pongGame.initGame();
+pongGame.initGamePublic();
