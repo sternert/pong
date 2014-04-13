@@ -28,7 +28,7 @@
 
 Wall = function () {
     this.positionY = 0;
-    this.size = 10;
+    this.size = 20;
 
     this.draw = function (table) {
         table.context.lineWidth = this.size;
@@ -42,8 +42,8 @@ Wall = function () {
 Ball = function () {
     this.direction = [0, 0];
     this.position = [0, 0];
-    this.speed = 1;
-    this.size = 20;
+    this.speed = 2;
+    this.size = 10;
 
     this.setStart = function (posX, posY) {
         this.position = [posX, posY];
@@ -59,6 +59,7 @@ Ball = function () {
     this.update = function (table, walls, paddles) {
         this.position[0] += this.direction[0] * this.speed;
         this.position[1] += this.direction[1] * this.speed;
+        // Collision against walls
         if (this.position[1] < this.size + walls[0].size) {
             this.position[1] = (this.size + walls[0].size) +
                 (this.size + walls[0].size - this.position[1]);
@@ -67,6 +68,23 @@ Ball = function () {
             this.position[1] = (table.canvasHeight - walls[1].size - this.size) +
                 (table.canvasHeight - walls[1].size - this.size - this.position[1]);
             this.direction[1] *= -1;
+        }
+
+        // Collision against Paddles
+        if (this.position[0] < this.size + paddles[0].width) { // At Player edge
+            if (this.position[1] < paddles[0].positionY + paddles[0].halfLength && this.position[1] > paddles[0].positionY - paddles[0].halfLength) {
+                this.position[0] = (this.size + paddles[0].width) +
+                (this.size + paddles[0].width - this.position[0]);
+                this.direction[0] *= -1;
+            }
+        } else if (this.position[0] > table.canvasWidth - this.size - paddles[1].width) { // At AI edge
+            if (this.position[1] < paddles[1].positionY + paddles[1].halfLength) {
+                if (this.position[1] > paddles[1].positionY - paddles[1].halfLength) {
+                    this.position[0] = (table.canvasWidth - paddles[1].width - this.size) +
+                        (table.canvasWidth - paddles[1].width - this.size - this.position[0]);
+                    this.direction[0] *= -1;
+                }
+            }
         }
     }
 }
@@ -99,9 +117,9 @@ Paddle = function (paddleName, isAi) {
     this.direction = 0;
     this.positionY = 200;
     this.positionX = 200;
-    this.speed = 2;
-    this.halfLength = 10;
-    this.width = 5;
+    this.speed = 1;
+    this.halfLength = 40;
+    this.width = 20;
     this.isAi = isAi;
 
     this.toString = function () {
@@ -157,12 +175,14 @@ Game = function (gameName) {
         table = new Table();
 
         player = new Paddle("Player");
-        player.positionX = player.width / 2;
+        //player.positionX = player.width / 2;
+        player.positionX = table.canvasWidth - player.width / 2;
         ai = new Paddle("AI", true);
-        ai.positionX = table.canvasWidth - ai.width / 2;
+        ai.positionX = ai.width / 2;
+        //ai.positionX = table.canvasWidth - ai.width / 2;
         ai.direction = Math.random() < 0.5 ? -1 : 1; // Sets a beginning random direction for AI
-        paddles[0] = player;
-        paddles[1] = ai;
+        paddles[1] = player;
+        paddles[0] = ai;
         fpsWriter = new FpsWriter();
         walls[0] = new Wall();
         walls[0].positionY = walls[0].size / 2;
