@@ -1,4 +1,25 @@
-﻿FpsWriter = function () {
+﻿function Vec2 (x, y) {
+    this.x = x;
+    this.y = y;
+    this.getLength = function () {
+        return Math.sqrt(this.x * this.x + this.y * this.y);
+    };
+    this.normalize = function () {
+        var length = this.getLength();
+        this.x = this.x / length;
+        this.y = this.y / length;
+    };
+    this.getAngle = function () {
+        return Math.acos( this.x / this.getLength());
+    };
+}
+
+var v1 = new Vec2(4, 4);
+console.log(v1.getLength());
+v1.normalize();
+console.log(v1.getLength());
+
+FpsWriter = function () {
     var currentFps = $("#fps");
     var possibleFps = $("#possibleFps");
 
@@ -39,63 +60,95 @@ Wall = function () {
     }
 }
 
-Ball = function () {
-    this.direction = [0, 0];
-    this.position = [0, 0];
+function Ball() {
+    this.direction = new Vec2(1, 0);
+    this.position = new Vec2(0, 0);
     this.speed = 2;
+    this.velocity = new Vec2(this.speed * this.direction.x, this.speed * this.direction.y);
     this.size = 10;
     this.reachedEnd = 0;
 
+    this.updateVelocity = function () {
+        this.velocity.x = this.speed * this.direction.x;
+        this.velocity.y = this.speed * this.direction.y;
+    }
+
     this.setStart = function (posX, posY) {
-        this.position = [posX, posY];
+        this.position.x = posX;
+        this.position.y = posY;
         var angle = Math.random() * Math.PI * 2;
-        this.direction = [Math.cos(angle), Math.sin(angle)];
+        this.direction.x = Math.cos(angle);
+        this.direction.y = Math.sin(angle);
+        this.direction.normalize();
+        this.updateVelocity();
+        var angleNew = this.direction.getAngle();
     }
     this.draw = function (table) {
         table.context.beginPath();
-        table.context.arc(this.position[0], this.position[1], this.size, 0, 2 * Math.PI, false);
+        table.context.arc(this.position.x, this.position.y, this.size, 0, 2 * Math.PI, false);
         table.context.fill();
     }
 
     this.update = function (table, walls, paddles) {
-        this.position[0] += this.direction[0] * this.speed;
-        this.position[1] += this.direction[1] * this.speed;
+        this.position.x += this.velocity.x;
+        this.position.y += this.velocity.y;
         // Collision against walls
-        if (this.position[1] < this.size + walls[0].size) {
-            this.position[1] = (this.size + walls[0].size) +
-                (this.size + walls[0].size - this.position[1]);
-            this.direction[1] *= -1;
-        } else if (this.position[1] > table.canvasHeight - walls[1].size - this.size) {
-            this.position[1] = (table.canvasHeight - walls[1].size - this.size) +
-                (table.canvasHeight - walls[1].size - this.size - this.position[1]);
-            this.direction[1] *= -1;
+        if (this.position.y < this.size + walls[0].size) {
+            this.position.y = (this.size + walls[0].size) +
+                (this.size + walls[0].size - this.position.y);
+            this.direction.y *= -1;
+            this.updateVelocity();
+        } else if (this.position.y > table.canvasHeight - walls[1].size - this.size) {
+            this.position.y = (table.canvasHeight - walls[1].size - this.size) +
+                (table.canvasHeight - walls[1].size - this.size - this.position.y);
+            this.direction.y *= -1;
+            this.updateVelocity();
         }
 
         // Collision against Paddles
-        if (this.position[0] < this.size + paddles[0].width) { // At Player edge
-            if (this.position[1] < paddles[0].positionY + paddles[0].halfLength && this.position[1] > paddles[0].positionY - paddles[0].halfLength) {
-                this.position[0] = (this.size + paddles[0].width) +
-                (this.size + paddles[0].width - this.position[0]);
-                this.direction[0] *= -1;
+        if (this.position.x < this.size + paddles[0].width) { // At Player edge
+            var offset = paddles[0].positionY - this.position.y;
+            if (Math.abs(offset) < paddles[0].halfLength) {
+                this.position.x = (this.size + paddles[0].width) +
+                (this.size + paddles[0].width - this.position.x);
+                this.direction.x *= -1;
+                var offsetValue = offset / paddles[0].halfLength;
+                var newAngle = this.direction.getAngle() + offsetValue;
+                this.direction.x = Math.cos(newAngle);
+                this.direction.y = Math.sin(newAngle);
+                this.direction.normalize();
+                this.updateVelocity();
             }
-        } else if (this.position[0] > table.canvasWidth - this.size - paddles[1].width) { // At AI edge
-            if (this.position[1] < paddles[1].positionY + paddles[1].halfLength) {
-                if (this.position[1] > paddles[1].positionY - paddles[1].halfLength) {
-                    this.position[0] = (table.canvasWidth - paddles[1].width - this.size) +
-                        (table.canvasWidth - paddles[1].width - this.size - this.position[0]);
-                    this.direction[0] *= -1;
+        } else if (this.position.x > table.canvasWidth - this.size - paddles[1].width) { // At AI edge
+            var offset = paddles[1].positionY - this.position.y;
+            if (Math.abs(offset) < paddles[1].halfLength) {
+                if (this.position.y > paddles[1].positionY - paddles[1].halfLength) {
+                    this.position.x = (table.canvasWidth - paddles[1].width - this.size) +
+                        (table.canvasWidth - paddles[1].width - this.size - this.position.x);
+                    this.direction.x *= -1;
+                    var offsetValue = offset / paddles[1].halfLength;
+                    var newAngle = this.direction.getAngle() + offsetValue;
+                    this.direction.x = Math.cos(newAngle);
+                    this.direction.y = Math.sin(newAngle);
+                    this.direction.normalize();
+                    this.updateVelocity();
+                    this.updateVelocity();
                 }
             }
         }
 
         // Reaching end walls
-        if (this.position[0] < this.size) { // At left edge
-            this.direction[0] = 0;
-            this.direction[1] = 0;
+        if (this.position.x < this.size) { // At left edge
+            this.direction.x = 0;
+            this.direction.y = 0;
+            this.velocity.x = 0;
+            this.velocity.y = 0;
             this.reachedEnd = -1;
-        } else if (this.position[0] > table.canvasWidth - this.size) { // At right edge
-            this.direction[0] = 0;
-            this.direction[1] = 0;
+        } else if (this.position.x > table.canvasWidth - this.size) { // At right edge
+            this.direction.x = 0;
+            this.direction.y = 0;
+            this.velocity.x = 0;
+            this.velocity.y = 0;
             this.reachedEnd = 1;
         }
     }
