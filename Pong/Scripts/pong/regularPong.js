@@ -26,20 +26,20 @@ function Vec2(x, y) {
     };
 }
 
-Wall = function () {
-    this.positionY = 0;
-    this.size = 20;
+Wall = function (positionY, size) {
+    this.size = size;
+    this.positionY = positionY;
 
     this.draw = function (table) {
-        table.context.lineWidth = this.size;
+        table.context.lineWidth = size;
         table.context.beginPath();
-        table.context.moveTo(0, this.positionY);
-        table.context.lineTo(table.canvasWidth, this.positionY);
+        table.context.moveTo(0, positionY);
+        table.context.lineTo(table.canvasWidth, positionY);
         table.context.stroke();
     }
 }
 
-function Ball() {
+Ball = function () {
     this.direction = new Vec2(1, 0);
     this.position = new Vec2(0, 0);
     this.speed = 4.0;
@@ -185,22 +185,53 @@ Paddle = function (paddleName, isAi) {
         table.context.stroke();
     }
 
-    this.update = function (table, walls) {
+    this.update = function (table, walls, ball) {
         var currentY = this.positionY + this.direction * this.speed;
         if (currentY - this.halfLength < walls[0].size) {
             currentY = this.halfLength + walls[0].size;
-            if (this.isAi) {
-                this.direction *= -1;
-            }
         } else if (currentY + this.halfLength > table.canvasHeight - walls[1].size) {
             currentY = table.canvasHeight - this.halfLength - walls[1].size;
-            if (this.isAi) {
-                this.direction *= -1;
-            }
         }
         this.positionY = currentY;
+        if (this.isAi) {
+            var offset = ball.position.y - currentY;
+            if (Math.abs(offset) > this.halfLength / 2) {
+                this.direction = offset / Math.abs(offset);
+            } else {
+                this.direction = 0;
+            }
+        }
     }
-}
+};
+
+Menu = function () {
+    var currentMenu = "main";
+    
+    this.draw = function (table) {
+        table.context.globalAlpha = 0.2;
+        table.context.fillRect(0, 0, table.canvasWidth, table.canvasHeight);
+        table.context.globalAlpha = 1;
+
+        if (currentMenu === "main") {
+            table.context.font = "60px Georgia";
+            table.context.textAlign = 'center';
+            table.context.fillText("PONG IT!", table.canvasWidth / 2, table.canvasHeight / 4);
+            table.context.font = "20px Georgia";
+            table.context.fillText("Press Enter to Start new game", table.canvasWidth / 2, table.canvasHeight / 3);
+            table.context.font = "15px Georgia";
+            table.context.fillText("W & S or UP & DOWN to move", table.canvasWidth / 2, table.canvasHeight / 3 + 30);
+            table.context.fillText("'P' to pause", table.canvasWidth / 2, table.canvasHeight / 2 + 50);
+            table.context.fillText("'F' to show fps", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 20);
+            table.context.fillText("'M' to toggle menu", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40);
+            table.context.fillText("Different play modes:", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 20);
+            table.context.font = "10px Georgia";
+            table.context.fillText("'1': Control both paddles, reach as far as you can", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 35);
+            table.context.fillText("'2': Control left paddle, play against slow AI", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 50);
+            table.context.fillText("'3': Control left paddle, play against fast AI", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 65);
+            table.context.fillText("'4': Control left paddle, lose against AI", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 80);
+        }
+    };
+};
 
 Game = function (gameName) {
     var table = null;
@@ -212,28 +243,32 @@ Game = function (gameName) {
     var fps = 60;
     var isRunning = false;
     var speedUpdateCounter = 0;
+    var isMenuShowing = false;
+    var isFpsShowing = false;
+    var menu = null;
+    var fpsmeter = null;
+
+    menu = new Menu();
+    fpsmeter = new FPSMeter({ decimals: 0, graph: true, theme: 'transparent', left: '5px' });
+    fpsmeter.hide();
 
     var initGame = function () {
         table = new Table();
 
         player = new Paddle("Player");
-        //player.positionX = player.width / 2;
-        player.positionX = table.canvasWidth - player.width / 2;
-        ai = new Paddle("AI");
-        ai.positionX = ai.width / 2;
-        //ai.positionX = table.canvasWidth - ai.width / 2;
-        //ai.direction = Math.random() < 0.5 ? -1 : 1; // Sets a beginning random direction for AI
-        paddles[1] = player;
-        paddles[0] = ai;
-        walls[0] = new Wall();
-        walls[0].positionY = walls[0].size / 2;
-        walls[1] = new Wall();
-        walls[1].positionY = table.canvasHeight - walls[1].size / 2;
+        player.positionX = player.width / 2;
+        ai = new Paddle("AI", true);
+        ai.positionX = table.canvasWidth - ai.width / 2;
+        ai.speed = 16.0;
+        paddles[0] = player;
+        paddles[1] = ai;
+        walls[0] = new Wall(10, 20); // Position half of size so all of it shows on canvas
+        walls[1] = new Wall(table.canvasHeight - 10, 20);
         ball = new Ball();
         ball.setStart(table.canvasWidth / 2, table.canvasHeight / 2);
-
         document.addEventListener("keydown", keyDownHandler, false);
         document.addEventListener("keyup", keyUpHandler, false);
+        document.addEventListener("keypress", menuHandler, false);
     }
 
     this.initGamePublic = function () {
@@ -241,8 +276,8 @@ Game = function (gameName) {
     }
 
     var update = function () {
-        player.update(table, walls);
-        ai.update(table, walls);
+        player.update(table, walls, ball);
+        ai.update(table, walls, ball);
         ball.update(table, walls, paddles);
 
         updateSpeedOfBall();
@@ -279,7 +314,6 @@ Game = function (gameName) {
         }
     }
 
-    var fpsmeter = new FPSMeter({ decimals: 0, graph: true, theme: 'transparent', left: '5px'});
 
     var startGame = function () {
         function frame() {
@@ -320,14 +354,6 @@ Game = function (gameName) {
 
     var keyUpHandler = function (event) {
         switch (event.keyCode) {
-            // key code for Enter key
-            case 13:
-                if (isRunning) {
-                    stopGame();
-                } else {
-                    startGame();
-                }
-                break;
                 // key code for up arrow
             case 38:
                 // key code for down arrow
@@ -337,7 +363,70 @@ Game = function (gameName) {
                 break;
         }
     }
+
+    var menuHandler = function (event) {
+        var charCode = (typeof event.which == "number") ? event.which : event.keyCode;
+        console.log("KeyPress = " + charCode);
+        switch (event.keyCode) {
+            // key code for up arrow
+            case 38:
+                if (isMenuShowing) {
+                    console.log('up arrow key pressed!');
+                }
+                break;
+                // key code for down arrow
+            case 40:
+                if (isMenuShowing) {
+                    console.log('down arrow key pressed!');
+                }
+                break;
+            case 77:
+            case 109:
+                toggleMenu();
+                break;
+            case 70:
+            case 102:
+                if (isFpsShowing) {
+                    fpsmeter.hide();
+                    isFpsShowing = false;
+                } else {
+                    fpsmeter.show();
+                    isFpsShowing = true;
+                }
+                break;
+                // key code for Enter key
+            case 13:
+            case 80:
+            case 112:
+                if (isMenuShowing) {
+                    toggleMenu();
+                }
+                if (isRunning) {
+                    stopGame();
+                } else {
+
+                    startGame();
+                }
+                break;
+        }
+    };
+
+    var toggleMenu = function () {
+        if (isMenuShowing) { // Show game instead.
+            draw();
+            isMenuShowing = false;
+        } else { // Show menu
+            isMenuShowing = true;
+            draw();
+            menu.draw(table);
+        };
+    }
+
+    this.toggleMenuPublic = function () {
+        toggleMenu();
+    };
 }
 
 var pongGame = new Game("Regular Pong");
 pongGame.initGamePublic();
+pongGame.toggleMenuPublic();
