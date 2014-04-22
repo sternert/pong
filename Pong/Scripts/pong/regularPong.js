@@ -46,6 +46,7 @@ Ball = function () {
     this.velocity = new Vec2(this.speed * this.direction.x, this.speed * this.direction.y);
     this.size = 10;
     this.reachedEnd = 0;
+    this.bounces = 0;
 
     this.updateVelocity = function () {
         this.velocity.x = this.speed * this.direction.x;
@@ -66,6 +67,7 @@ Ball = function () {
         this.direction.normalize();
         this.updateVelocity();
         var angleNew = this.direction.getAngle();
+        this.bounces = 0;
     }
     this.draw = function (table) {
         table.context.beginPath();
@@ -99,6 +101,7 @@ Ball = function () {
                 this.direction.y += (paddles[0].speed * paddles[0].direction) / 5;
                 this.direction.normalize();
                 this.updateVelocity();
+                this.bounces++;
             }
         } else if (this.position.x > table.canvasWidth - this.size - paddles[1].width) { // At AI edge
             var offset = paddles[1].positionY - this.position.y;
@@ -110,6 +113,7 @@ Ball = function () {
                     this.direction.y += (paddles[1].speed * paddles[1].direction) / 5;
                     this.direction.normalize();
                     this.updateVelocity();
+                    this.bounces++;
                 }
             }
         }
@@ -159,7 +163,7 @@ Paddle = function (paddleName, isAi) {
     this.direction = 0;
     this.positionY = 200;
     this.positionX = 200;
-    this.speed = 4.0;
+    this.speed = 6.0;
     this.halfLength = 40;
     this.width = 10;
     this.isAi = isAi;
@@ -205,14 +209,14 @@ Paddle = function (paddleName, isAi) {
 };
 
 Menu = function () {
-    var currentMenu = "main";
+    this.currentMenu = "main";
     
-    this.draw = function (table) {
+    this.draw = function (table, bounces) {
         table.context.globalAlpha = 0.2;
         table.context.fillRect(0, 0, table.canvasWidth, table.canvasHeight);
         table.context.globalAlpha = 1;
 
-        if (currentMenu === "main") {
+        if (this.currentMenu === "main") {
             table.context.font = "60px Georgia";
             table.context.textAlign = 'center';
             table.context.fillText("PONG IT!", table.canvasWidth / 2, table.canvasHeight / 4);
@@ -225,10 +229,31 @@ Menu = function () {
             table.context.fillText("'M' to toggle menu", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40);
             table.context.fillText("Different play modes:", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 20);
             table.context.font = "10px Georgia";
-            table.context.fillText("'1': Control both paddles, reach as far as you can", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 35);
-            table.context.fillText("'2': Control left paddle, play against slow AI", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 50);
-            table.context.fillText("'3': Control left paddle, play against fast AI", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 65);
-            table.context.fillText("'4': Control left paddle, lose against AI", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 80);
+            table.context.fillText("'1': Control left paddle, play against slow AI", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 35);
+            table.context.fillText("'2': Control left paddle, play against fast AI", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 50);
+            table.context.fillText("'3': Control left paddle, lose against AI", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 65);
+            table.context.fillText("'4': Control both paddles, reach as far as you can", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 80);
+        } else if (this.currentMenu === "score-player-player") {
+            table.context.font = "50px Georgia";
+            table.context.textAlign = 'center';
+            table.context.fillText("Congratulations!", table.canvasWidth / 2, table.canvasHeight / 4);
+            table.context.font = "15px Georgia";
+            table.context.fillText("You reached " + bounces + " bounces solo", table.canvasWidth / 2, table.canvasHeight / 3 + 30);
+            table.context.fillText("Press Enter to start a new game", table.canvasWidth / 2, table.canvasHeight / 2 + 50);
+        } else if (this.currentMenu === "score-ai-win") {
+            table.context.font = "40px Georgia";
+            table.context.textAlign = 'center';
+            table.context.fillText("I'm so sorry! You lost against AI", table.canvasWidth / 2, table.canvasHeight / 4);
+            table.context.font = "15px Georgia";
+            table.context.fillText("You reached " + bounces + " bounces", table.canvasWidth / 2, table.canvasHeight / 3 + 30);
+            table.context.fillText("Press Enter to start a new game", table.canvasWidth / 2, table.canvasHeight / 2 + 50);
+        } else if (this.currentMenu === "score-player-win") {
+            table.context.font = "40px Georgia";
+            table.context.textAlign = 'center';
+            table.context.fillText("Congratulations!", table.canvasWidth / 2, table.canvasHeight / 4);
+            table.context.font = "15px Georgia";
+            table.context.fillText("You reached " + bounces + " bounces and WON against AI", table.canvasWidth / 2, table.canvasHeight / 3 + 30);
+            table.context.fillText("Press Enter to start a new game", table.canvasWidth / 2, table.canvasHeight / 2 + 50);
         }
     };
 };
@@ -247,6 +272,7 @@ Game = function (gameName) {
     var isFpsShowing = false;
     var menu = null;
     var fpsmeter = null;
+    var playMode = 1;
 
     menu = new Menu();
     fpsmeter = new FPSMeter({ decimals: 0, graph: true, theme: 'transparent', left: '5px' });
@@ -257,9 +283,13 @@ Game = function (gameName) {
 
         player = new Paddle("Player");
         player.positionX = player.width / 2;
-        ai = new Paddle("AI", true);
+        if (playMode === 4) {
+            ai = new Paddle("AI", false);
+        } else {
+            ai = new Paddle("AI", true);
+            ai.speed = 5.0 * playMode;
+        }
         ai.positionX = table.canvasWidth - ai.width / 2;
-        ai.speed = 16.0;
         paddles[0] = player;
         paddles[1] = ai;
         walls[0] = new Wall(10, 20); // Position half of size so all of it shows on canvas
@@ -276,12 +306,14 @@ Game = function (gameName) {
     }
 
     var update = function () {
-        player.update(table, walls, ball);
-        ai.update(table, walls, ball);
-        ball.update(table, walls, paddles);
+        if (isRunning) {
+            player.update(table, walls, ball);
+            ai.update(table, walls, ball);
+            ball.update(table, walls, paddles);
 
-        updateSpeedOfBall();
-        checkVictoryConditions();
+            updateSpeedOfBall();
+            checkVictoryConditions();
+        }
     }
     var draw = function () {
         table.clearCanvas();
@@ -290,17 +322,23 @@ Game = function (gameName) {
         ball.draw(table);
         player.draw(table);
         ai.draw(table);
+        if (isMenuShowing) {
+            menu.draw(table, ball.bounces);
+        }
     }
 
     var checkVictoryConditions = function () {
         if (ball.reachedEnd != 0) {
-            if (ball.reachedEnd > 0) {
-                console.log("Left player wins!");
-            } else {
-                console.log("Right player wins!");
-            }
+            ball.reachedEnd = 0;
             stopGame();
-            initGame();
+            if (playMode === 4) {
+                menu.currentMenu = "score-player-player";
+            } else if (ball.reachedEnd > 0) {
+                menu.currentMenu = "score-player-win";
+            } else {
+                menu.currentMenu = "score-ai-win";
+            }
+            isMenuShowing = true;
         }
     }
 
@@ -341,13 +379,17 @@ Game = function (gameName) {
             case 38:
                 //console.log('up arrow key pressed!');
                 player.direction = -1;
-                ai.direction = -1;
+                if (playMode === 4) {
+                    ai.direction = -1;
+                }
                 break;
                 // key code for down arrow
             case 40:
                 //console.log('down arrow key pressed!');
                 player.direction = 1;
-                ai.direction = 1;
+                if (playMode === 4) {
+                    ai.direction = 1;
+                }
                 break;
         }
     }
@@ -359,7 +401,9 @@ Game = function (gameName) {
                 // key code for down arrow
             case 40:
                 player.direction = 0;
-                ai.direction = 0;
+                if (playMode === 4) {
+                    ai.direction = 0;
+                }
                 break;
         }
     }
@@ -380,9 +424,22 @@ Game = function (gameName) {
                     console.log('down arrow key pressed!');
                 }
                 break;
+            case 49:
+                playMode = 1;
+                break;
+            case 50:
+                playMode = 2;
+                break;
+            case 51:
+                playMode = 3;
+                break;
+            case 52:
+                playMode = 4;
+                break;
             case 77:
             case 109:
                 toggleMenu();
+                initGame();
                 break;
             case 70:
             case 102:
@@ -400,30 +457,35 @@ Game = function (gameName) {
             case 112:
                 if (isMenuShowing) {
                     toggleMenu();
+                    initGame();
                 }
                 if (isRunning) {
                     stopGame();
                 } else {
-
                     startGame();
                 }
                 break;
         }
     };
 
-    var toggleMenu = function () {
+    var toggleMenu = function (isScoreMenu) {
         if (isMenuShowing) { // Show game instead.
-            draw();
+            //draw();
             isMenuShowing = false;
-        } else { // Show menu
+        } else if (isScoreMenu) { // Show score menu
             isMenuShowing = true;
-            draw();
-            menu.draw(table);
+            //draw();
+            //menu.draw(table, ball.bounces);
+        } else { // Show regular menu
+            isMenuShowing = true;
+            //draw();
+            //menu.draw(table);
         };
     }
 
     this.toggleMenuPublic = function () {
         toggleMenu();
+        draw();
     };
 }
 
