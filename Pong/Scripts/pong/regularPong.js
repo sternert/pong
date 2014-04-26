@@ -289,7 +289,7 @@ Game = function (gameName) {
             ai = new Paddle("AI", false);
         } else {
             ai = new Paddle("AI", true);
-            ai.speed = 2.0 * playMode;
+            ai.speed = 5.0 * playMode;
         }
         ai.positionX = table.canvasWidth - ai.width / 2;
         paddles[0] = player;
@@ -366,7 +366,6 @@ Game = function (gameName) {
             fpsmeter.tick();
         }
 
-        console.log("Game started!");
         isRunning = gameState = 2;
         requestAnimationFrame(frame);
     }
@@ -376,12 +375,10 @@ Game = function (gameName) {
     }
 
     var keyDownHandler = function (event) {
-        console.log(event.keyCode);
         switch (event.keyCode) {
             // key code for up arrow
             case 38:
             case 87:
-                //console.log('up arrow key pressed!');
                 player.direction = -1;
                 if (playMode === 4) {
                     ai.direction = -1;
@@ -390,7 +387,6 @@ Game = function (gameName) {
                 // key code for down arrow
             case 40:
             case 83:
-                //console.log('down arrow key pressed!');
                 player.direction = 1;
                 if (playMode === 4) {
                     ai.direction = 1;
@@ -417,20 +413,17 @@ Game = function (gameName) {
 
     var menuHandler = function (event) {
         var charCode = (typeof event.which == "number") ? event.which : event.keyCode;
-        console.log("KeyPress = " + charCode);
         switch (event.keyCode) {
             // key code for up arrow
             case 38:
             case 119:
                 if (isMenuShowing) {
-                    console.log('up arrow key pressed!');
                 }
                 break;
                 // key code for down arrow
             case 40:
             case 115:
                 if (isMenuShowing) {
-                    console.log('down arrow key pressed!');
                 }
                 break;
             case 49:
