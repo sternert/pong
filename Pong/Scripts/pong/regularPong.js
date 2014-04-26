@@ -224,7 +224,7 @@ Menu = function () {
             table.context.fillText("Press Enter to Start new game", table.canvasWidth / 2, table.canvasHeight / 3);
             table.context.font = "15px Georgia";
             table.context.fillText("W & S or UP & DOWN to move", table.canvasWidth / 2, table.canvasHeight / 3 + 30);
-            table.context.fillText("'P' to pause", table.canvasWidth / 2, table.canvasHeight / 2 + 50);
+            table.context.fillText("'ENTER' to play/pause", table.canvasWidth / 2, table.canvasHeight / 2 + 50);
             table.context.fillText("'F' to show fps", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 20);
             table.context.fillText("'M' to toggle menu", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40);
             table.context.fillText("Different play modes:", table.canvasWidth / 2, table.canvasHeight / 2 + 50 + 40 + 20);
@@ -268,11 +268,12 @@ Game = function (gameName) {
     var fps = 60;
     var isRunning = false;
     var speedUpdateCounter = 0;
-    var isMenuShowing = false;
+    var isMenuShowing = true;
     var isFpsShowing = false;
     var menu = null;
     var fpsmeter = null;
     var playMode = 1;
+    var gameState = 1;
 
     menu = new Menu();
     fpsmeter = new FPSMeter({ decimals: 0, graph: true, theme: 'transparent', left: '5px' });
@@ -280,6 +281,7 @@ Game = function (gameName) {
 
     var initGame = function () {
         table = new Table();
+        menu.currentMenu = "main";
 
         player = new Paddle("Player");
         player.positionX = player.width / 2;
@@ -287,7 +289,7 @@ Game = function (gameName) {
             ai = new Paddle("AI", false);
         } else {
             ai = new Paddle("AI", true);
-            ai.speed = 5.0 * playMode;
+            ai.speed = 2.0 * playMode;
         }
         ai.positionX = table.canvasWidth - ai.width / 2;
         paddles[0] = player;
@@ -303,10 +305,11 @@ Game = function (gameName) {
 
     this.initGamePublic = function () {
         initGame();
+        draw();
     }
 
     var update = function () {
-        if (isRunning) {
+        if (gameState === 2) { // Is Running
             player.update(table, walls, ball);
             ai.update(table, walls, ball);
             ball.update(table, walls, paddles);
@@ -322,15 +325,13 @@ Game = function (gameName) {
         ball.draw(table);
         player.draw(table);
         ai.draw(table);
-        if (isMenuShowing) {
+        if (gameState === 1 || gameState === 4) {
             menu.draw(table, ball.bounces);
         }
     }
 
     var checkVictoryConditions = function () {
         if (ball.reachedEnd != 0) {
-            ball.reachedEnd = 0;
-            stopGame();
             if (playMode === 4) {
                 menu.currentMenu = "score-player-player";
             } else if (ball.reachedEnd > 0) {
@@ -338,7 +339,8 @@ Game = function (gameName) {
             } else {
                 menu.currentMenu = "score-ai-win";
             }
-            isMenuShowing = true;
+            ball.reachedEnd = 0;
+            gameState = 4;
         }
     }
 
@@ -358,25 +360,27 @@ Game = function (gameName) {
             fpsmeter.tickStart();
             update();
             draw();
-            if (isRunning) {
+            if (gameState === 2) {
                 requestAnimationFrame(frame);
             }
             fpsmeter.tick();
         }
 
         console.log("Game started!");
-        isRunning = true;
+        isRunning = gameState = 2;
         requestAnimationFrame(frame);
     }
 
     var stopGame = function () {
-        isRunning = false;
+        gameState = 3;
     }
 
     var keyDownHandler = function (event) {
+        console.log(event.keyCode);
         switch (event.keyCode) {
             // key code for up arrow
             case 38:
+            case 87:
                 //console.log('up arrow key pressed!');
                 player.direction = -1;
                 if (playMode === 4) {
@@ -385,6 +389,7 @@ Game = function (gameName) {
                 break;
                 // key code for down arrow
             case 40:
+            case 83:
                 //console.log('down arrow key pressed!');
                 player.direction = 1;
                 if (playMode === 4) {
@@ -398,8 +403,10 @@ Game = function (gameName) {
         switch (event.keyCode) {
                 // key code for up arrow
             case 38:
+            case 87:
                 // key code for down arrow
             case 40:
+            case 83:
                 player.direction = 0;
                 if (playMode === 4) {
                     ai.direction = 0;
@@ -414,32 +421,51 @@ Game = function (gameName) {
         switch (event.keyCode) {
             // key code for up arrow
             case 38:
+            case 119:
                 if (isMenuShowing) {
                     console.log('up arrow key pressed!');
                 }
                 break;
                 // key code for down arrow
             case 40:
+            case 115:
                 if (isMenuShowing) {
                     console.log('down arrow key pressed!');
                 }
                 break;
             case 49:
                 playMode = 1;
+                if (gameState === 2) {
+                    initGame();
+                    stopGame();
+                }
                 break;
             case 50:
                 playMode = 2;
+                if (gameState === 2) {
+                    initGame();
+                    stopGame();
+                }
                 break;
             case 51:
                 playMode = 3;
+                if (gameState === 2) {
+                    initGame();
+                    stopGame();
+                }
                 break;
             case 52:
                 playMode = 4;
+                if (gameState === 2) {
+                    initGame();
+                    stopGame();
+                }
                 break;
             case 77:
             case 109:
                 toggleMenu();
                 initGame();
+                draw();
                 break;
             case 70:
             case 102:
@@ -453,33 +479,31 @@ Game = function (gameName) {
                 break;
                 // key code for Enter key
             case 13:
-            case 80:
-            case 112:
-                if (isMenuShowing) {
+                if (gameState === 1 || gameState === 4) { // Is in start or score menu
                     toggleMenu();
                     initGame();
-                }
-                if (isRunning) {
+                } else if (gameState === 2) { // Is Running
                     stopGame();
-                } else {
+                    gameState = 3;
+                } else if (gameState === 3) { // Is Paused
                     startGame();
+                    gameState = 2;
                 }
                 break;
         }
     };
 
     var toggleMenu = function (isScoreMenu) {
-        if (isMenuShowing) { // Show game instead.
-            //draw();
+        if (gameState === 1 || gameState === 4) { // Is in start menu
+            gameState = 3;
             isMenuShowing = false;
+            startGame();
         } else if (isScoreMenu) { // Show score menu
             isMenuShowing = true;
-            //draw();
-            //menu.draw(table, ball.bounces);
+            gameState = 4;
         } else { // Show regular menu
             isMenuShowing = true;
-            //draw();
-            //menu.draw(table);
+            gameState = 1;
         };
     }
 
@@ -491,4 +515,3 @@ Game = function (gameName) {
 
 var pongGame = new Game("Regular Pong");
 pongGame.initGamePublic();
-pongGame.toggleMenuPublic();
